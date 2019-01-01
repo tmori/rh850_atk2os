@@ -76,12 +76,12 @@ USE_HARD_FLOAT = true
 #  ボード毎に設定が異なる項目
 #
 CDEFS := $(CDEFS) -DOMIT_DATA_INIT
-LDSCRIPT = $(SRCDIR)/arch/v850_gcc/rh850_f1h_6m.ld
+LDSCRIPT = $(SRCDIR)/arch/v850_gcc/rh850_f1l_1m.ld
 
 #
 #  使用するUARTのポート
 #
-CDEFS := $(CDEFS) -DRLIN3x_USE_PORT0
+CDEFS := $(CDEFS) -DRLIN3x_USE_PORT0 -DHWC_USE_UNIT0
 #CDEFS := $(CDEFS) -DRLIN3x_USE_PORT1
 
 #

@@ -117,10 +117,10 @@
 .endm
 
 .macro SET_PMR reg_val, reg_tmp
-	stsr psw, reg_tmp
+	stsr psw, AMARG(reg_tmp)
 	di
 	ldsr AMARG(reg_val), 11, 2
-	ldsr reg_tmp, psw
+	ldsr AMARG(reg_tmp), psw
 .endm
 
 #endif /* !__v850e3v5__ */

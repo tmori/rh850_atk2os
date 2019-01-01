@@ -73,6 +73,16 @@ current_psw(void)
 }
 
 LOCAL_INLINE void
+__LDSR(uint32 regID, uint32 selID, uint32 reg)
+{
+	Asm("   ldsr	%0, %1, %2 \n"
+		: 
+		: "r" (reg),"i" (regID), "i" (selID)
+		:);
+	return;
+}
+
+LOCAL_INLINE void
 set_psw(uint32 psw)
 {
 	Asm("   ldsr	r0,31 \n"  /* Select CPU function grp */
@@ -181,8 +191,8 @@ set_intbp(uint32 intbp)
 	psw = current_psw();
 	disable_int();
 
-	Asm("\t ldsr	%1, 4, 1 \n"
-		: "r" (intbp) :);
+	Asm("\t ldsr	%0, 4, 1 \n"
+		: "=r" (intbp) :);
 
 	set_psw_wo_fgs(psw);
 
