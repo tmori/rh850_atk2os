@@ -189,7 +189,8 @@ ifndef OMIT_WARNING_ALL
   COPTS := $(COPTS) -Wall -Wno-unused-label -Wpointer-arith
 endif
 ifndef OMIT_OPTIMIZATION
-  COPTS := $(COPTS) -O2
+#  COPTS := $(COPTS) -O2
+  COPTS := $(COPTS) -O2  -gdwarf-2
 endif
 CDEFS := $(CDEFS) 
 INCLUDES := -I. -I$(SRCDIR)/include -I$(SRCDIR)/arch -I$(SRCDIR) $(INCLUDES)
@@ -384,7 +385,7 @@ $(OBJFILE): $(APPL_CFG_INPUT) Os_Lcfg.timestamp $(ALL_OBJS) $(LIBS_DEP)
 	$(CFG) --pass 3 --kernel $(CFG_KERNEL) $(INCLUDES) \
 				--rom-image $(OBJNAME).srec --symbol-table $(OBJNAME).syms \
 				-T $(TARGETDIR)/target_check.tf $(CFG_TABS) $(filter %.arxml,$^)
-	#$(OBJDUMP) -d $(OBJFILE) > $(OBJNAME).dump
+	$(OBJDUMP) -d $(OBJFILE) > $(OBJNAME).dump
 
 #
 #  バイナリファイルの生成
