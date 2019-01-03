@@ -385,7 +385,7 @@ $(OBJFILE): $(APPL_CFG_INPUT) Os_Lcfg.timestamp $(ALL_OBJS) $(LIBS_DEP)
 	$(CFG) --pass 3 --kernel $(CFG_KERNEL) $(INCLUDES) \
 				--rom-image $(OBJNAME).srec --symbol-table $(OBJNAME).syms \
 				-T $(TARGETDIR)/target_check.tf $(CFG_TABS) $(filter %.arxml,$^)
-	$(OBJDUMP) -d $(OBJFILE) > $(OBJNAME).dump
+	$(OBJDUMP) --architecture=v850-rh850 -d $(OBJFILE) > $(OBJNAME).dump
 
 #
 #  バイナリファイルの生成
