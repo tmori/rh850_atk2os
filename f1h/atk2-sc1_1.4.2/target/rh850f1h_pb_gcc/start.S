@@ -86,17 +86,17 @@ __start:
 #endif /* TOPPERS_USE_HFLOAT */
 
 	/* permit local ram access */
-	mov 0xfffee600, r20 -- PEG #0 base
-	mov 0x0001, r21 -- PEGG1SP val / All SPID is permit
-	mov 0xffffffff, r22 -- PEGG1MK val / All Address Masked
-	mov 0x00000077, r23 -- PEGG1BA val / Enable, Read/Write permit, Non-Lock, Base=0
+	-- mov 0xfffee600, r20 -- PEG #0 base
+	-- mov 0x0001, r21 -- PEGG1SP val / All SPID is permit
+	-- mov 0xffffffff, r22 -- PEGG1MK val / All Address Masked
+	-- mov 0x00000077, r23 -- PEGG1BA val / Enable, Read/Write permit, Non-Lock, Base=0
 
-	st.h    r21, 0x0c[r20]   -- set PEGGSP
-	st.w    r22, 0x80[r20]   -- set PEGG1MK
-	st.w    r23, 0x84[r20]   -- set PEGG1BA
+	-- st.h    r21, 0x0c[r20]   -- set PEGGSP
+	-- st.w    r22, 0x80[r20]   -- set PEGG1MK
+	-- st.w    r23, 0x84[r20]   -- set PEGG1BA
 
 	-- Store completion barrier
-	ld.w    0x84[r20], r0
+	-- ld.w    0x84[r20], r0
 	syncp
 
 	/*

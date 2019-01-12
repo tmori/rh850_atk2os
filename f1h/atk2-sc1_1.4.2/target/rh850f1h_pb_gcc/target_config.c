@@ -250,7 +250,7 @@ target_hardware_initialize(void)
 
 #ifndef OMIT_CLOCK_INIT
 	/* クロックの初期設定 */
-	target_clock_initialize();
+	//target_clock_initialize();
 #else
 	/* クロック初期化待ち */
 	while(sil_rew_mem((void *)CKSC_CPUCLKS_CTL) != 0x03){}
@@ -260,7 +260,7 @@ target_hardware_initialize(void)
 	__LDSR(2,1,(unsigned int)_reset);
 
 	/* ポートの初期設定 */
-	target_port_initialize();
+	//target_port_initialize();
 }
 
 /*

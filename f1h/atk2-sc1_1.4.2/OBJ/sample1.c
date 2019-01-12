@@ -586,6 +586,7 @@ TASK(MainTask)
 	TickType	val = 0U;
 	TickType	eval = 0U;
 
+	syslog(LOG_NOTICE, "MainTask activated");
 	/*
 	 *  タスク番号・コマンドバッファ初期化
 	 */

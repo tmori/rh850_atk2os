@@ -71,7 +71,7 @@ PRCDIR = $(SRCDIR)/arch/$(PRC)_$(TOOL)
 #
 INCLUDES := $(INCLUDES) -I$(PRCDIR) -I$(SRCDIR)/arch/$(TOOL)
 COPTS := $(COPTS) -mdisable-callt -mno-app-regs -mtda=0 -mno-long-calls -mno-prolog-function
-CDEFS := $(CDEFS) -DTOPPERS_LABEL_ASM
+CDEFS := $(CDEFS) -DTOPPERS_LABEL_ASM -D__v850e3v5__
 LIBS := $(LIBS) -lm -lgcc -lc
 LDFLAGS :=  $(LDFLAGS)
 

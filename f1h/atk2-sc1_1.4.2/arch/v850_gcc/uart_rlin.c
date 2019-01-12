@@ -51,7 +51,7 @@
 #include "target_serial.h"
 #include "uart_rlin.h"
 #include "Os_Lcfg.h"
-
+#include "rh850_f1h.h"
 
 /* 内部関数のプロトタイプ宣言 */
 LOCAL_INLINE uint8 uart_getchar(void);
@@ -114,8 +114,14 @@ TermHwSerial(void)
  */
 ISR(RxHwSerialInt)
 {
+	/* 割込み制御レジスタ */
+	uint32 eic_address = EIC_ADDRESS(35);
 	/*
 	 *  受信通知コールバックルーチンを呼び出す
 	 */
 	RxSerialInt(uart_getchar());
+
+	/* 割込み要求ビットのクリア */
+	sil_wrh_mem((void *) eic_address,
+				sil_reh_mem((void *) eic_address) & ~EIRFn);
 }

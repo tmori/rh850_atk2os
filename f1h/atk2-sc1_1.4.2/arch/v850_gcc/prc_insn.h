@@ -192,7 +192,7 @@ set_intbp(uint32 intbp)
 	disable_int();
 
 	Asm("\t ldsr	%0, 4, 1 \n"
-		: "=r" (intbp) :);
+		: : "r" (intbp) :);
 
 	set_psw_wo_fgs(psw);
 
