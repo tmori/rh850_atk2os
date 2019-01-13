@@ -139,6 +139,14 @@ RecvPolSerialChar(uint8 *character)
 	ResumeAllInterrupts();
 }
 
+static void (*serial_callback_func) (char c) = NULL_PTR;
+
+void
+SetCallbackSerial(void (*func) (char c))
+{
+	serial_callback_func = func;
+}
+
 /*
  *  受信コールバック関数
  */
@@ -160,4 +168,8 @@ RxSerialInt(uint8 character)
 		}
 	}
 	ResumeAllInterrupts();
+
+	if (serial_callback_func != NULL_PTR) {
+		serial_callback_func(character);
+	}
 }

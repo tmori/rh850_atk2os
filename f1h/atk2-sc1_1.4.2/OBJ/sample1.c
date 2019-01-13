@@ -436,6 +436,7 @@ static void PutSetAbs(uint8 alarm_no, uint8 tick_no, uint8 cycle_no);
 static void PutCanArm(void);
 static void PutAppMode(void);
 static void schedule_table_sample_routine(void);
+static void SerialCallbackFunc(char c);
 
 /*
  *  内部データバッファ
@@ -577,20 +578,181 @@ main(void)
  *
  *  ユーザコマンドの受信と，コマンドごとの処理実行
  */
+static void doMainTaskCommandProc(uint8	command)
+{
+	static uint8		task_no = 0;
+	static TickType	val = 0U;
+	static TickType	eval = 0U;
+
+	/*
+	 *  入力コマンドチェック
+	 */
+	if ((command <= (uint8) (0x1fU)) || (command >= (uint8) (0x80U))) {
+		syslog(LOG_INFO, "Not ASCII character");
+	}
+	else {
+#ifndef OMIT_ECHO
+		syslog(LOG_INFO, "%c", command);
+#endif /* OMIT_ECHO */
+
+		/*
+		 *  コマンド判別
+		 */
+		switch (command) {
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+			/*
+			 *  処理対象タスクの変更
+			 */
+			task_no = (uint8) (command - '1');
+			break;
+		case 'A':
+		case '!':
+		case '"':
+		case '#':
+		case '$':
+		case '%':
+		case 'z':
+		case 'k':
+		case 'K':
+		case 'l':
+		case 'i':
+		case 'w':
+		case 'W':
+			/*
+			 *  タスクへのコマンド通知
+			 */
+			command_tbl[task_no] = command;
+			break;
+		/*
+		 *  以降はメインタスクでコマンド処理
+		 */
+		case 'a':
+			PutActTsk(task_no);
+			break;
+		case 's':
+			PutSchedule();
+			break;
+		case 'S':
+			PutActNonPriTsk();
+			break;
+		case 'Z':
+			PutTaskState(task_no);
+			break;
+		case 'x':
+			syslog(LOG_INFO, "call RAISE_CPU_EXCEPTION");
+			RAISE_CPU_EXCEPTION;
+			break;
+		case 'd':
+			PutDisAllInt();
+			break;
+		case 'D':
+			PutSusAllInt();
+			break;
+		case 'f':
+			PutSusOSInt();
+			break;
+		case 'T':
+			PutHwCnt3();
+			break;
+		case 'e':
+			PutSetEvt(task_no);
+			break;
+		case 'E':
+			PutGetEvt(task_no);
+			break;
+		case 'b':
+			PutArmBase();
+			break;
+		case 'B':
+			PutArmTick();
+			PutArmTick();
+			break;
+		case 'v':
+			/* SetRelAlarm(ActTskArm, 500, 0)を実行 */
+			PutSetRel(0U, 0U, 0U);
+			break;
+		case 'V':
+			/* SetRelAlarm(SetEvtArm, 500, 0)を実行 */
+			PutSetRel(1U, 0U, 0U);
+			break;
+		case 'n':
+			/* SetRelAlarm(CallBackArm, 900, 0)を実行 */
+			PutSetRel(2U, 1U, 0U);
+			break;
+		case 'N':
+			/* SetRelAlarm(CallBackArm, 900, 500)を実行 */
+			PutSetRel(2U, 1U, 1U);
+			break;
+		case 'm':
+			/* SetAbsAlarm(CallBackArm, 900, 0)を実行 */
+			PutSetAbs(2U, 1U, 0U);
+			break;
+		case 'M':
+			/* SetAbsAlarm(CallBackArm, 900, 500)を実行 */
+			PutSetAbs(2U, 1U, 1U);
+			break;
+		case 'h':
+			/* CancelAlarm(CallBackArm)を実行 */
+			PutCanArm();
+			break;
+		case 'c':
+			syslog(LOG_INFO, "Call IncrementCounter(SampleCnt)");
+			IncrementCounter(SampleCnt);
+			break;
+		case 'C':
+			syslog(LOG_INFO, "Call IncrementCounter(SampleCnt2)");
+			IncrementCounter(SampleCnt2);
+			break;
+		case 'j':
+			syslog(LOG_INFO, "GetCounterValue(MAIN_HW_COUNTER, val)");
+			GetCounterValue(MAIN_HW_COUNTER, &val);
+			syslog(LOG_INFO, " val = %d", val);
+			break;
+		case 'J':
+			syslog(LOG_INFO, "Pre val = %d", val);
+			syslog(LOG_INFO, "GetElapsedValue(MAIN_HW_COUNTER, val ,eval)");
+			GetElapsedValue(MAIN_HW_COUNTER, &val, &eval);
+			syslog(LOG_INFO, " val = %d", val);
+			syslog(LOG_INFO, " eval = %d", eval);
+			break;
+		case 'r':
+			syslog(LOG_INFO, "GetISRID() Call from Task Context");
+			syslog(LOG_INFO, "GetISRID() = %d", GetISRID());
+			break;
+		case 'p':
+			PutAppMode();
+			break;
+		case 't':
+			schedule_table_sample_routine();
+			break;
+		case 'q':
+			ShutdownOS(E_OK);
+			break;
+		case 'Q':
+			ShutdownOS(E_OS_STATE);
+			break;
+		default:
+			/* 上記のコマンド以外の場合，処理を行わない */
+			break;
+		}
+	}
+	return;
+}
 TASK(MainTask)
 {
 	uint8		command;
-	uint8		task_no;
 	uint32		i;
 
-	TickType	val = 0U;
-	TickType	eval = 0U;
-
 	syslog(LOG_NOTICE, "MainTask activated");
+
+	SetCallbackSerial(SerialCallbackFunc);
 	/*
 	 *  タスク番号・コマンドバッファ初期化
 	 */
-	task_no = (uint8) (0);
 	for (i = 0U; i < (sizeof(command_tbl) / sizeof(command_tbl[0])); i++) {
 		command_tbl[i] = 0U;
 	}
@@ -604,170 +766,19 @@ TASK(MainTask)
 	 *  コマンド実行ループ
 	 */
 	while (1) {
-		WaitEvent(MainEvt);     /* 10msの作業時間待ち */
-		ClearEvent(MainEvt);
-
 		/*
 		 *  入力コマンド取得
 		 */
-		syslog(LOG_INFO, "Input Command:");
-		command = GetCommand();
+		WaitEvent(MainEvt);     /* 10msの作業時間待ち */
+		ClearEvent(MainEvt);
 
-		/*
-		 *  入力コマンドチェック
-		 */
-		if ((command <= (uint8) (0x1fU)) || (command >= (uint8) (0x80U))) {
-			syslog(LOG_INFO, "Not ASCII character");
-		}
-		else {
-#ifndef OMIT_ECHO
-			syslog(LOG_INFO, "%c", command);
-#endif /* OMIT_ECHO */
-
-			/*
-			 *  コマンド判別
-			 */
-			switch (command) {
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-				/*
-				 *  処理対象タスクの変更
-				 */
-				task_no = (uint8) (command - '1');
-				break;
-			case 'A':
-			case '!':
-			case '"':
-			case '#':
-			case '$':
-			case '%':
-			case 'z':
-			case 'k':
-			case 'K':
-			case 'l':
-			case 'i':
-			case 'w':
-			case 'W':
-				/*
-				 *  タスクへのコマンド通知
-				 */
-				command_tbl[task_no] = command;
-				break;
-			/*
-			 *  以降はメインタスクでコマンド処理
-			 */
-			case 'a':
-				PutActTsk(task_no);
-				break;
-			case 's':
-				PutSchedule();
-				break;
-			case 'S':
-				PutActNonPriTsk();
-				break;
-			case 'Z':
-				PutTaskState(task_no);
-				break;
-			case 'x':
-				syslog(LOG_INFO, "call RAISE_CPU_EXCEPTION");
-				RAISE_CPU_EXCEPTION;
-				break;
-			case 'd':
-				PutDisAllInt();
-				break;
-			case 'D':
-				PutSusAllInt();
-				break;
-			case 'f':
-				PutSusOSInt();
-				break;
-			case 'T':
-				PutHwCnt3();
-				break;
-			case 'e':
-				PutSetEvt(task_no);
-				break;
-			case 'E':
-				PutGetEvt(task_no);
-				break;
-			case 'b':
-				PutArmBase();
-				break;
-			case 'B':
-				PutArmTick();
-				PutArmTick();
-				break;
-			case 'v':
-				/* SetRelAlarm(ActTskArm, 500, 0)を実行 */
-				PutSetRel(0U, 0U, 0U);
-				break;
-			case 'V':
-				/* SetRelAlarm(SetEvtArm, 500, 0)を実行 */
-				PutSetRel(1U, 0U, 0U);
-				break;
-			case 'n':
-				/* SetRelAlarm(CallBackArm, 900, 0)を実行 */
-				PutSetRel(2U, 1U, 0U);
-				break;
-			case 'N':
-				/* SetRelAlarm(CallBackArm, 900, 500)を実行 */
-				PutSetRel(2U, 1U, 1U);
-				break;
-			case 'm':
-				/* SetAbsAlarm(CallBackArm, 900, 0)を実行 */
-				PutSetAbs(2U, 1U, 0U);
-				break;
-			case 'M':
-				/* SetAbsAlarm(CallBackArm, 900, 500)を実行 */
-				PutSetAbs(2U, 1U, 1U);
-				break;
-			case 'h':
-				/* CancelAlarm(CallBackArm)を実行 */
-				PutCanArm();
-				break;
-			case 'c':
-				syslog(LOG_INFO, "Call IncrementCounter(SampleCnt)");
-				IncrementCounter(SampleCnt);
-				break;
-			case 'C':
-				syslog(LOG_INFO, "Call IncrementCounter(SampleCnt2)");
-				IncrementCounter(SampleCnt2);
-				break;
-			case 'j':
-				syslog(LOG_INFO, "GetCounterValue(MAIN_HW_COUNTER, val)");
-				GetCounterValue(MAIN_HW_COUNTER, &val);
-				syslog(LOG_INFO, " val = %d", val);
-				break;
-			case 'J':
-				syslog(LOG_INFO, "Pre val = %d", val);
-				syslog(LOG_INFO, "GetElapsedValue(MAIN_HW_COUNTER, val ,eval)");
-				GetElapsedValue(MAIN_HW_COUNTER, &val, &eval);
-				syslog(LOG_INFO, " val = %d", val);
-				syslog(LOG_INFO, " eval = %d", eval);
-				break;
-			case 'r':
-				syslog(LOG_INFO, "GetISRID() Call from Task Context");
-				syslog(LOG_INFO, "GetISRID() = %d", GetISRID());
-				break;
-			case 'p':
-				PutAppMode();
-				break;
-			case 't':
-				schedule_table_sample_routine();
-				break;
-			case 'q':
-				ShutdownOS(E_OK);
-				break;
-			case 'Q':
-				ShutdownOS(E_OS_STATE);
-				break;
-			default:
-				/* 上記のコマンド以外の場合，処理を行わない */
+		while (1) {
+			command = GetCommand();
+			if (command == '\0') {
 				break;
 			}
+			syslog(LOG_INFO, "Input Command:");
+			doMainTaskCommandProc(command);
 		}
 	}
 
@@ -921,6 +932,14 @@ TaskProk(uint8 task_no)
 /*
  *  コマンド受信処理
  */
+static void
+SerialCallbackFunc(char c)
+{
+	SetEvent(MainTask, MainEvt);
+	//syslog(LOG_INFO, "recv:%c", c);
+	return;
+}
+
 static uint8
 GetCommand(void)
 {
@@ -930,15 +949,13 @@ GetCommand(void)
 	 *  コマンドを受信するまでループ
 	 */
 	command = '\0';
-	do {
-		WaitEvent(MainEvt);     /* 10msウェイト */
-		ClearEvent(MainEvt);
-		RecvPolSerialChar(&command);    /* 受信バッファポーリング */
-		if (command == '\n') {
-			command = '\0';
-		}
-	} while (command == '\0');
-
+	RecvPolSerialChar(&command);    /* 受信バッファポーリング */
+	if (command == '\0') {
+		return ('\0');
+	}
+	else if (command == '\n') {
+		command = '\0';
+	}
 
 	return(command);
 }   /* GetCommand */
@@ -1607,74 +1624,78 @@ schedule_table_sample_routine(void)
 		WaitEvent(MainEvt);     /* 10msの作業時間待ち */
 		ClearEvent(MainEvt);
 
-		/*
-		 *  入力コマンド取得
-		 */
-		syslog(LOG_INFO, "Input Command:");
-		command = GetCommand();
-		syslog(LOG_INFO, "%c", command);
-
-		/*
-		 *  コマンド判定
-		 */
-		switch (command) {
-		case '1':
-			scheduletable_id = scheduletable1;
-			break;
-		case '2':
-			scheduletable_id = scheduletable2;
-			break;
-		case 'i':
-			IncrementCounter(SchtblSampleCnt);
-			val = 0U;
-			GetCounterValue(SchtblSampleCnt, &val);
-			if ((val % 5U) == 0U) {
-				syslog(LOG_INFO, "\tGetCounterValue(SchtblSampleCnt ) = %d", val);
+		while (1) {
+			command = GetCommand();
+			if (command == '\0') {
+				break;
 			}
-			break;
-		case 's':
-			syslog(LOG_INFO, "\tStartScheduleTableRel(scheduletable%d, 5)", scheduletable_id + 1U);
-			error_log(StartScheduleTableRel(scheduletable_id, 5U));
-			break;
-		case 'S':
-			syslog(LOG_INFO, "\tStartScheduleTableAbs(scheduletable%d, 5)", scheduletable_id + 1U);
-			error_log(StartScheduleTableAbs(scheduletable_id, 5U));
-			break;
-		case 'f':
-			syslog(LOG_INFO, "\tStopScheduleTable(scheduletable%d)", scheduletable_id + 1U);
-			error_log(StopScheduleTable(scheduletable_id));
-			break;
-		case 'n':
-			syslog(LOG_INFO, "\tNextScheduleTable(scheduletable%d, scheduletable%d)", scheduletable_id + 1U, scheduletable2 + 1U);
-			error_log(NextScheduleTable(scheduletable_id, scheduletable2));
-			break;
-		case 'N':
-			syslog(LOG_INFO, "\tNextScheduleTable(scheduletable%d, scheduletable%d)", scheduletable_id + 1U, scheduletable1 + 1U);
-			error_log(NextScheduleTable(scheduletable_id, scheduletable1));
-			break;
-		case 'g':
-			status = 0U;
-			syslog(LOG_INFO, "\tGetScheduleTableStatus(scheduletable%d, status)", scheduletable_id + 1U);
-			error_log(GetScheduleTableStatus(scheduletable_id, &status));
-			syslog(LOG_INFO, "\tstatus = %d", status);
-			break;
-		case 't':
-			syslog(LOG_INFO, "\t[ schedule table sample routine OUT, press 't' IN ]");
-			flag = TRUE;
-			break;
-		case 'q':
-			ShutdownOS(E_OK);
-			break;
-		case 'Q':
-			ShutdownOS(E_OS_STATE);
-			break;
-		default:
-			/* コマンドが上記のケース以外なら処理は行わない */
-			break;
-		}
-		/*  フラグが立っていた場合，リターンする  */
-		if (flag == TRUE) {
-			return;
+			/*
+			*  入力コマンド取得
+			*/
+			syslog(LOG_INFO, "Input Command:");
+			syslog(LOG_INFO, "%c", command);
+			/*
+			*  コマンド判定
+			*/
+			switch (command) {
+			case '1':
+				scheduletable_id = scheduletable1;
+				break;
+			case '2':
+				scheduletable_id = scheduletable2;
+				break;
+			case 'i':
+				IncrementCounter(SchtblSampleCnt);
+				val = 0U;
+				GetCounterValue(SchtblSampleCnt, &val);
+				if ((val % 5U) == 0U) {
+					syslog(LOG_INFO, "\tGetCounterValue(SchtblSampleCnt ) = %d", val);
+				}
+				break;
+			case 's':
+				syslog(LOG_INFO, "\tStartScheduleTableRel(scheduletable%d, 5)", scheduletable_id + 1U);
+				error_log(StartScheduleTableRel(scheduletable_id, 5U));
+				break;
+			case 'S':
+				syslog(LOG_INFO, "\tStartScheduleTableAbs(scheduletable%d, 5)", scheduletable_id + 1U);
+				error_log(StartScheduleTableAbs(scheduletable_id, 5U));
+				break;
+			case 'f':
+				syslog(LOG_INFO, "\tStopScheduleTable(scheduletable%d)", scheduletable_id + 1U);
+				error_log(StopScheduleTable(scheduletable_id));
+				break;
+			case 'n':
+				syslog(LOG_INFO, "\tNextScheduleTable(scheduletable%d, scheduletable%d)", scheduletable_id + 1U, scheduletable2 + 1U);
+				error_log(NextScheduleTable(scheduletable_id, scheduletable2));
+				break;
+			case 'N':
+				syslog(LOG_INFO, "\tNextScheduleTable(scheduletable%d, scheduletable%d)", scheduletable_id + 1U, scheduletable1 + 1U);
+				error_log(NextScheduleTable(scheduletable_id, scheduletable1));
+				break;
+			case 'g':
+				status = 0U;
+				syslog(LOG_INFO, "\tGetScheduleTableStatus(scheduletable%d, status)", scheduletable_id + 1U);
+				error_log(GetScheduleTableStatus(scheduletable_id, &status));
+				syslog(LOG_INFO, "\tstatus = %d", status);
+				break;
+			case 't':
+				syslog(LOG_INFO, "\t[ schedule table sample routine OUT, press 't' IN ]");
+				flag = TRUE;
+				break;
+			case 'q':
+				ShutdownOS(E_OK);
+				break;
+			case 'Q':
+				ShutdownOS(E_OS_STATE);
+				break;
+			default:
+				/* コマンドが上記のケース以外なら処理は行わない */
+				break;
+			}
+			/*  フラグが立っていた場合，リターンする  */
+			if (flag == TRUE) {
+				return;
+			}
 		}
 	}
 }   /* schedule_table_sample_routine */

@@ -87,6 +87,7 @@ extern void TermSerial(void);
  */
 extern void RecvPolSerialChar(uint8 *character);
 
+extern void SetCallbackSerial(void (*func) (char c));
 
 #endif /* TOPPERS_MACRO_ONLY */
 
