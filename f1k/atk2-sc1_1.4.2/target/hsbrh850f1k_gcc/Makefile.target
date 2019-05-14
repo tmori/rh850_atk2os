@@ -71,7 +71,8 @@ CORETYPE = RH850G3K
 #  ボード毎に設定が異なる項目
 #
 CDEFS := $(CDEFS)
-LDSCRIPT = $(SRCDIR)/arch/v850_gcc/rh850_f1k_1m.ld
+#LDSCRIPT = $(SRCDIR)/arch/v850_gcc/rh850_f1k_1m.ld
+LDSCRIPT = $(SRCDIR)/arch/v850_gcc/rh850_f1l_1m.ld
 
 #
 #  コンパイルオプション

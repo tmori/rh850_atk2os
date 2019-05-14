@@ -70,10 +70,12 @@ PRCDIR = $(SRCDIR)/arch/$(PRC)_$(TOOL)
 #  コンパイルオプション
 #
 INCLUDES := $(INCLUDES) -I$(PRCDIR) -I$(SRCDIR)/arch/$(TOOL)
-COPTS := $(COPTS) -mdisable-callt -mno-app-regs -mtda=0
-CDEFS := $(CDEFS) -DTOPPERS_LABEL_ASM
+#COPTS := $(COPTS) -mdisable-callt -mno-app-regs -mtda=0
+COPTS := $(COPTS) -mdisable-callt -mno-app-regs -mtda=0 -mno-long-calls -mno-prolog-function
+CDEFS := $(CDEFS) -DTOPPERS_LABEL_ASM -D__v850e3v5__
 LIBS := $(LIBS) -lgcc -lc
-LDFLAGS :=  $(LDFLAGS) -Wl,-S # for CuteSuite+ debugger
+#LDFLAGS :=  $(LDFLAGS) -Wl,-S # for CuteSuite+ debugger
+LDFLAGS :=  $(LDFLAGS) 
 
 
 #
